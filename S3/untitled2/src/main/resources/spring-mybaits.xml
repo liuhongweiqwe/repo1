@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!-- 1.数据源-->
+    <!--1.读取数据库配置文件 -->
+    <context:property-placeholder location="classpath:db.properties"/>
+
+    <!-- 获取数据源,使用dbcp连接池 -->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+          destroy-method="close" scope="singleton">
+        <property name="driverClassName" value="${driver}"></property>
+        <property name="url" value="${url}"/>
+        <property name="username" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+
+        <!-- 初始化连接个数 一般为0个   -->
+        <property name="initialSize" value="${initialSize}"></property>
+        <!-- 最大连接数 默认为8个, 可以设置50个左右 -->
+        <property name="maxActive" value="${maxActive}"></property>
+        <!-- 最大空闲连接数,默认为8个, 超过的连接将被释放资源,负数则不受限制 -->
+        <property name="maxIdle" value="${maxIdle}"></property>
+        <!-- 最大空闲连接数,默认为0个, 低于该数值,连接处则会重新创建连接 越接近最大空闲数,性能越好 -->
+        <property name="minIdle" value="${minIdle}"></property>
+        <!-- 最大等待时间 单位为ms 设为-1 为无限等待 -->
+        <property name="maxWait" value="${maxWait}"></property>
+        <!-- 是否开启连接回收机制 true :回收 false:不回收 -->
+        <property name="removeAbandoned" value="${removeAbandoned}"></property>
+        <!-- 设置无效时间, 超过此时间 回收无用连接 默认为300 可以设置少一点 200 -->
+        <property name="removeAbandonedTimeout" value="${removeAbandonedTimeout}"></property>
+        <!-- sql心跳 -->
+        <!-- 定义开启evict的定时校验,循环校验 -->
+        <property name="testWhileIdle" value="true"></property>
+        <!-- 循环时间 设置为6000 一分钟, 只有 大于0 才能开启循环校验 -->
+        <property name="timeBetweenEvictionRunsMillis" value="6000"></property>
+        <!-- sql语句校验是否有效, 该值不能太复杂 -->
+        <property name="validationQuery" value="select 1"></property>
+        <!-- 对于接受的连接是否接受测验 , false为不校验 -->
+        <property name="testOnBorrow" value="false"></property>
+        <!-- 对返回的连接是否进行校验, false为不校验 默认为false -->
+        <property name="testOnReturn" value="false"></property>
+        <!-- 定义每次校验的数量,一般与最大连接数一样 -->
+        <property name="numTestsPerEvictionRun" value="${maxActive}"></property>
+    </bean>
+
+    <!--2. 事务管理相关配置 -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <tx:advice id="tx" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="add*" propagation="REQUIRED" rollback-for="Exception"></tx:method>
+            <tx:method name="delete*" propagation="REQUIRED" rollback-for="Exception"></tx:method>
+            <tx:method name="update*" propagation="REQUIRED" rollback-for="Exception"></tx:method>
+        </tx:attributes>
+    </tx:advice>
+
+    <aop:aspectj-autoproxy/>
+    <aop:config proxy-target-class="true">
+        <aop:pointcut expression="execution(* com.lhw.biz..*.*(..))" id="transService"/>
+        <aop:advisor advice-ref="tx" pointcut-ref="transService"/>
+    </aop:config>
+
+    <!--3.配置MyBatis的SqlsessionFactionBean  -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 配置数据源组 -->
+        <property name="dataSource" ref="dataSource"/>
+        <!-- 引用 mybaits配置文件 -->
+        <property name="configLocation" value="classpath:mybatis-config.xml"/>
+    </bean>
+
+    <!-- 4.配置MyBatis的MapperScannerCofigurer
+         在 配置文件中注册了 MapperScannerCofigurer 注入Mapper所在的包, 会自动去查找所有的Mapper
+     -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!-- basePackage,自动扫描基础包及其子包下面所有的接口, 多个包用,隔开 -->
+        <property name="basePackage" value="com.lhw.mapper"/>
+    </bean>
+</beans>
